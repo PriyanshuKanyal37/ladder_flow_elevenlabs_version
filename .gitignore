@@ -1,0 +1,53 @@
+# Secrets / local env
+.env
+.env.*
+!.env.example
+frontend/.env.local
+voice-agent/backend/.env
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build / cache
+.next/
+frontend/.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+frontend/build_error_log.*
+frontend/build_log*.txt
+
+# Local tools / generated analysis
+.claude/
+.playwright-cli/
+.playwright-mcp/
+.vscode/
+output/
+graphify-out/
+frontend/graphify-out/
+voice-agent/backend/graphify-out/
+.graphify*
+.chunk_*.txt
+
+# Local scripts/docs not needed for deploy source
+extract.py
+merge.py
+graphify_update_finish.py
+ELEVENLABS_USAGE_PRICING_AUDIT.md
+WEEKLY_CONTENT_PACK_IMPLEMENTATION_PLAN.md
+docs/
+
+# OS
+.DS_Store
+Thumbs.db

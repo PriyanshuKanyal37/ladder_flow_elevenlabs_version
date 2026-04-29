@@ -1,0 +1,38 @@
+{
+  "name": "ladder-voice",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@elevenlabs/react": "^1.2.1",
+    "@livekit/components-react": "^2.9.20",
+    "@locator/runtime": "^0.5.1",
+    "@tanstack/react-query": "^5.90.20",
+    "axios": "^1.13.5",
+    "clsx": "^2.1.1",
+    "livekit-client": "^2.18.0",
+    "lucide-react": "^0.563.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-force-graph-2d": "^1.29.1",
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@locator/babel-jsx": "^0.5.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
