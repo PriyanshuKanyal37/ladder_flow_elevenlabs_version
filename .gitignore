@@ -4,6 +4,7 @@
 !.env.example
 frontend/.env.local
 voice-agent/backend/.env
+voice-agent/
 
 # Dependencies
 node_modules/
