@@ -1,10 +1,200 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
 import type { Session } from '@/lib/types/session';
 import { authHeaders } from '@/lib/auth';
+
+// ─── SVG Bar Chart ─────────────────────────────────────────────────────────────
+
+interface ChartBar {
+  label: string;
+  sessions: number;
+  published: number;
+  faded?: boolean;
+}
+
+function VelocityChart({ data }: { data: ChartBar[] }) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; bar: ChartBar } | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    // Trigger bar animation after mount
+    const t = setTimeout(() => setMounted(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  const W = 600;
+  const H = 160;
+  const PAD_LEFT = 36;
+  const PAD_RIGHT = 12;
+  const PAD_TOP = 14;
+  const PAD_BOTTOM = 32;
+  const chartW = W - PAD_LEFT - PAD_RIGHT;
+  const chartH = H - PAD_TOP - PAD_BOTTOM;
+
+  const maxVal = Math.max(...data.map((d) => Math.max(d.sessions, d.published)), 1);
+  const gridLines = [0, 0.25, 0.5, 0.75, 1];
+  const BAR_GROUP_W = chartW / data.length;
+  const BAR_W = Math.min(10, BAR_GROUP_W * 0.28);
+  const GAP = 4;
+
+  function yPos(val: number) {
+    return PAD_TOP + chartH - (val / maxVal) * chartH;
+  }
+
+  function barHeight(val: number) {
+    return (val / maxVal) * chartH;
+  }
+
+  return (
+    <div className="relative w-full select-none" style={{ minHeight: H }}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="w-full"
+        style={{ height: H, overflow: 'visible' }}
+        onMouseLeave={() => setTooltip(null)}
+      >
+        {/* Grid lines */}
+        {gridLines.map((pct) => {
+          const y = PAD_TOP + chartH * (1 - pct);
+          return (
+            <g key={pct}>
+              <line
+                x1={PAD_LEFT}
+                x2={W - PAD_RIGHT}
+                y1={y}
+                y2={y}
+                stroke="var(--border-subtle)"
+                strokeWidth={1}
+                strokeDasharray={pct === 0 ? '0' : '3 4'}
+              />
+              {pct > 0 && (
+                <text
+                  x={PAD_LEFT - 5}
+                  y={y + 4}
+                  textAnchor="end"
+                  fontSize={8}
+                  fill="var(--text-dim)"
+                  fontFamily="inherit"
+                >
+                  {Math.round(maxVal * pct)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Bars */}
+        {data.map((bar, i) => {
+          const groupX = PAD_LEFT + i * BAR_GROUP_W + BAR_GROUP_W / 2;
+          const sessX = groupX - BAR_W - GAP / 2;
+          const pubX = groupX + GAP / 2;
+          const labelY = H - PAD_BOTTOM + 14;
+
+          const sessH = mounted ? barHeight(bar.sessions) : 0;
+          const pubH = mounted ? barHeight(bar.published) : 0;
+          const sessY = yPos(bar.sessions);
+          const pubY = yPos(bar.published);
+
+          return (
+            <g
+              key={bar.label}
+              onMouseEnter={(e) => {
+                const svg = svgRef.current;
+                if (!svg) return;
+                const rect = svg.getBoundingClientRect();
+                const scaleX = rect.width / W;
+                setTooltip({
+                  x: groupX * scaleX,
+                  y: Math.min(sessY, pubY) * (rect.height / H) - 10,
+                  bar,
+                });
+              }}
+              style={{ cursor: 'default' }}
+            >
+              {/* Sessions bar */}
+              <rect
+                x={sessX}
+                y={mounted ? sessY : PAD_TOP + chartH}
+                width={BAR_W}
+                height={mounted ? sessH : 0}
+                rx={3}
+                fill={bar.faded ? 'rgba(240,114,82,0.22)' : 'var(--accent)'}
+                style={{
+                  transition: 'y 0.55s cubic-bezier(0.34,1.56,0.64,1), height 0.55s cubic-bezier(0.34,1.56,0.64,1)',
+                  transitionDelay: `${i * 0.04}s`,
+                  filter: bar.faded ? 'none' : 'drop-shadow(0 2px 6px rgba(240,114,82,0.28))',
+                }}
+              />
+              {/* Published bar */}
+              <rect
+                x={pubX}
+                y={mounted ? pubY : PAD_TOP + chartH}
+                width={BAR_W}
+                height={mounted ? pubH : 0}
+                rx={3}
+                fill={bar.faded ? 'rgba(16,185,129,0.18)' : '#10B981'}
+                style={{
+                  transition: 'y 0.55s cubic-bezier(0.34,1.56,0.64,1), height 0.55s cubic-bezier(0.34,1.56,0.64,1)',
+                  transitionDelay: `${i * 0.04 + 0.06}s`,
+                  filter: bar.faded ? 'none' : 'drop-shadow(0 2px 6px rgba(16,185,129,0.22))',
+                }}
+              />
+              {/* Day label */}
+              <text
+                x={groupX}
+                y={labelY}
+                textAnchor="middle"
+                fontSize={9}
+                fontWeight={600}
+                fill={bar.faded ? 'var(--text-dim)' : 'var(--text-secondary)'}
+                fontFamily="inherit"
+                style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}
+              >
+                {bar.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="pointer-events-none absolute z-10 rounded-[8px] px-2.5 py-2 text-[10px] shadow-lg"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: 'translate(-50%, -100%)',
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-primary)',
+            minWidth: 90,
+          }}
+        >
+          <p className="mb-1 font-bold" style={{ color: 'var(--text-secondary)', fontSize: 9 }}>
+            {tooltip.bar.label}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>Sessions</span>
+            <span className="ml-auto font-bold" style={{ color: 'var(--text-primary)' }}>{tooltip.bar.sessions}</span>
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
+            <span style={{ color: 'var(--text-secondary)' }}>Published</span>
+            <span className="ml-auto font-bold" style={{ color: 'var(--text-primary)' }}>{tooltip.bar.published}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -19,8 +209,8 @@ function statusPill(status: Session['status']) {
   if (status === 'completed')
     return { label: 'Complete', cls: 'bg-[rgba(16,185,129,0.14)] text-[#10b981]', bar: 'w-full bg-[#10B981]' };
   if (status === 'in_progress')
-    return { label: 'Processing', cls: 'bg-[rgba(245,158,11,0.16)] text-[#f59e0b]', bar: 'w-[70%] bg-[#F59E0B]' };
-  return { label: 'Queued', cls: 'bg-white/5 text-white/40', bar: 'w-[10%] bg-white/20' };
+    return { label: 'Live', cls: 'bg-[rgba(245,158,11,0.16)] text-[#f59e0b]', bar: 'w-[70%] bg-[#F59E0B]' };
+  return { label: 'Draft', cls: 'bg-[rgba(99,102,241,0.12)] text-[#818cf8]', bar: 'w-[25%] bg-[#818cf8]' };
 }
 
 const ROW_ICONS = [
@@ -91,15 +281,67 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPaused, setHasPaused] = useState(false);
+  const [brainStats, setBrainStats] = useState<{
+    total: number;
+    frameworks: number;
+    stories: number;
+    topFrameworks: string[];
+    lastUpdated: string | null;
+  } | null>(null);
+
+  // Fetch brain memories for the Digital Brain widget
+  useEffect(() => {
+    async function fetchBrain() {
+      try {
+        const res = await fetch('/api/brain/memories', { headers: authHeaders() });
+        if (!res.ok) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items: any[] = await res.json();
+        const frameworks = items.filter((m) => m.type === 'framework');
+        const stories = items.filter((m) => m.type === 'story');
+        const topFrameworks = frameworks
+          .slice(0, 3)
+          .map((m: { content: string }) => m.content.length > 40 ? m.content.slice(0, 40) + '…' : m.content);
+        const lastUpdated = items.length > 0 ? items[0].created_at : null;
+        setBrainStats({
+          total: items.length,
+          frameworks: frameworks.length,
+          stories: stories.length,
+          topFrameworks,
+          lastUpdated,
+        });
+      } catch {
+        // silently fail — widget just won't show counts
+      }
+    }
+    fetchBrain();
+  }, []);
 
   useEffect(() => {
     async function fetchSessions() {
       try {
         const res = await fetch('/api/interviews', { headers: authHeaders() });
         if (!res.ok) throw new Error();
-        const data: Session[] = await res.json();
-        setSessions(data);
-        setHasPaused(data.some((s) => s.status === 'in_progress'));
+        // Backend returns snake_case + uppercase status — normalize here
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw: any[] = await res.json();
+        const normalized: Session[] = raw.map((r) => ({
+          id: r.id,
+          title: r.topic ?? 'Untitled Session',
+          status: (() => {
+            const s = (r.status ?? '').toUpperCase();
+            if (s === 'COMPLETED') return 'completed';
+            if (s === 'STARTED' || s === 'RESEARCHING' || s === 'INTERVIEWING') return 'in_progress';
+            return 'draft'; // DRAFT, FAILED, or anything else
+          })() as Session['status'],
+          category: (r.category ?? 'general') as Session['category'],
+          tags: r.tags ?? [],
+          duration: r.duration_seconds ?? 0,
+          createdAt: new Date(r.created_at),
+          updatedAt: new Date(r.updated_at),
+        }));
+        setSessions(normalized);
+        setHasPaused(normalized.some((s) => s.status === 'in_progress'));
       } catch {
         setSessions([]);
       } finally {
@@ -110,27 +352,69 @@ export default function DashboardPage() {
   }, []);
 
   const completedCount = useMemo(() => sessions.filter((s) => s.status === 'completed').length, [sessions]);
-  const postsGenerated = completedCount * 6;
-  const postsPublished = Math.floor(postsGenerated * 0.7);
+  // Posts generated = sessions that have at least one content piece (3 per completed session)
+  const postsGenerated = completedCount * 3;
+  const postsPublished = Math.floor(postsGenerated * 0.6);
   const weekSessions = sessions.filter((s) => {
-    const d = new Date(s.createdAt ?? '');
+    const d = new Date(s.createdAt);
     return Date.now() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
   }).length;
 
+  // Streak: count of distinct days in last 7 with at least one session
+  const streakDays = useMemo(() => {
+    const set = new Set<string>();
+    sessions.forEach((s) => {
+      const d = new Date(s.createdAt);
+      if (Date.now() - d.getTime() < 7 * 24 * 60 * 60 * 1000) {
+        set.add(d.toDateString());
+      }
+    });
+    return set.size;
+  }, [sessions]);
+
   const statCards = [
     { label: 'Sessions This Month', value: loading ? '--' : String(sessions.length), icon: 'mic', badge: 'Live Now', accent: 'var(--accent)', bg: 'rgba(233,83,53,0.08)' },
-    { label: 'Weekly Streak', value: loading ? '--' : `${Math.min(weekSessions, 7)}d`, icon: 'local_fire_department', badge: 'Active', accent: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
+    { label: 'Weekly Streak', value: loading ? '--' : `${streakDays}d`, icon: 'local_fire_department', badge: 'Active', accent: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
     { label: 'Posts Generated', value: loading ? '--' : String(postsGenerated), icon: 'description', badge: 'Total', accent: '#10b981', bg: 'rgba(16,185,129,0.08)' },
     { label: 'Posts Published', value: loading ? '--' : String(postsPublished), icon: 'check_circle', badge: 'Self-reported', accent: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
   ];
 
   const recentSessions = sessions.slice(0, 5);
 
-  const chartData = [
-    { label: 'Mon', h: 40 }, { label: 'Tue', h: 65 }, { label: 'Wed', h: 55 },
-    { label: 'Thu', h: 90 }, { label: 'Fri', h: 75 },
-    { label: 'Sat', h: 30, faded: true }, { label: 'Sun', h: 20, faded: true },
-  ];
+  const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date();
+
+  const chartData: ChartBar[] = useMemo(() => {
+    // Show last 7 calendar days (rolling window) — always shows recent sessions
+    const days: ChartBar[] = [];
+    for (let daysAgo = 6; daysAgo >= 0; daysAgo--) {
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() - daysAgo);
+      dayDate.setHours(0, 0, 0, 0);
+      const nextDay = new Date(dayDate);
+      nextDay.setDate(dayDate.getDate() + 1);
+      const dow = dayDate.getDay();
+
+      const sessCount = sessions.filter((s) => {
+        const d = new Date(s.createdAt);
+        return d >= dayDate && d < nextDay;
+      }).length;
+
+      const pubCount = sessions.filter((s) => {
+        const d = new Date(s.createdAt);
+        return d >= dayDate && d < nextDay && s.status === 'completed';
+      }).length;
+
+      days.push({
+        label: DAY_LABELS[dow],
+        sessions: sessCount,
+        published: pubCount,
+        faded: dow === 0 || dow === 6,
+      });
+    }
+    return days;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions]);
 
   return (
     <div className="screen-frame relative px-3 pb-6 pt-3 sm:px-4 lg:px-5">
@@ -228,21 +512,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" /><span className="text-[9px] font-bold uppercase tracking-[0.07em] text-[var(--text-secondary)]">Published</span></div>
               </div>
             </div>
-            <div className="flex h-[120px] items-end justify-between gap-1.5 px-1 sm:h-[140px]">
-              {chartData.map((bar) => (
-                <div key={bar.label} className="flex flex-1 flex-col items-center gap-1.5">
-                  <div
-                    className="w-2.5 rounded-full"
-                    style={{
-                      height: `${bar.h}%`,
-                      background: bar.faded ? 'rgba(233,83,53,0.2)' : 'var(--accent)',
-                      boxShadow: bar.faded ? 'none' : '0 4px 12px rgba(233,83,53,0.25)',
-                    }}
-                  />
-                  <span className="text-[9px] font-bold uppercase text-[var(--text-secondary)]">{bar.label}</span>
-                </div>
-              ))}
-            </div>
+            <VelocityChart data={chartData} />
           </article>
 
           {/* Recent sessions */}
@@ -292,18 +562,21 @@ export default function DashboardPage() {
               <Link href="/brain" className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--accent)] hover:underline">Open</Link>
             </div>
 
-            {sessions.length === 0 ? (
+            {brainStats === null || brainStats.total === 0 ? (
               <div className="flex flex-col items-center gap-3 py-4 text-center">
                 <span className="material-symbols-outlined text-[32px] text-[var(--text-secondary)]">psychology</span>
-                <p className="text-[11px] text-[var(--text-secondary)]">No memories yet.<br />Complete a session to start building.</p>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  {brainStats === null ? 'Loading brain data…' : 'No memories yet.'}
+                  {brainStats?.total === 0 && <><br />Complete a session to start building.</>}
+                </p>
               </div>
             ) : (
               <>
                 <div className="mb-3 grid grid-cols-3 gap-1.5">
                   {[
-                    { label: 'Memories', value: completedCount * 12, icon: 'neurology', color: 'var(--accent)' },
-                    { label: 'Frameworks', value: completedCount * 3, icon: 'account_tree', color: '#6366f1' },
-                    { label: 'Stories', value: completedCount * 4, icon: 'auto_stories', color: '#10b981' },
+                    { label: 'Memories', value: brainStats.total, icon: 'neurology', color: 'var(--accent)' },
+                    { label: 'Frameworks', value: brainStats.frameworks, icon: 'account_tree', color: '#6366f1' },
+                    { label: 'Stories', value: brainStats.stories, icon: 'auto_stories', color: '#10b981' },
                   ].map((s) => (
                     <div key={s.label} className="flex flex-col items-center gap-1 rounded-[10px] py-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <span className="material-symbols-outlined text-[14px]" style={{ color: s.color, fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
@@ -313,21 +586,25 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
-                <div className="mb-3 space-y-1">
-                  <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Top Frameworks</p>
-                  {['Positioning framework', 'ICP definition', 'Pricing strategy'].map((f) => (
-                    <div key={f} className="flex items-center gap-2 rounded-lg px-2.5 py-2" style={{ background: 'rgba(233,83,53,0.07)', border: '1px solid rgba(233,83,53,0.12)' }}>
-                      <span className="material-symbols-outlined text-[11px] text-[var(--accent)]">schema</span>
-                      <span className="text-[11px] font-medium text-[var(--text-primary)]">{f}</span>
-                    </div>
-                  ))}
-                </div>
+                {brainStats.topFrameworks.length > 0 && (
+                  <div className="mb-3 space-y-1">
+                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Top Frameworks</p>
+                    {brainStats.topFrameworks.map((f) => (
+                      <div key={f} className="flex items-center gap-2 rounded-lg px-2.5 py-2" style={{ background: 'rgba(233,83,53,0.07)', border: '1px solid rgba(233,83,53,0.12)' }}>
+                        <span className="material-symbols-outlined text-[11px] text-[var(--accent)]">schema</span>
+                        <span className="truncate text-[11px] font-medium text-[var(--text-primary)]">{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] text-[var(--text-secondary)]">Last updated: today</p>
+                  <p className="text-[9px] text-[var(--text-secondary)]">
+                    {brainStats.lastUpdated ? `${brainStats.total} items stored` : 'Up to date'}
+                  </p>
                   <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-bold uppercase" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
                     <span className="h-1 w-1 rounded-full bg-[#10b981] animate-pulse" />
-                    Syncing
+                    Live
                   </span>
                 </div>
               </>
