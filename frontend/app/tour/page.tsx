@@ -20,7 +20,7 @@ const SLIDES = [
     tag: 'Create Podcast',
     headline: 'Record once.\nPublish everywhere.',
     description:
-      'Talk for 5 minutes. Our AI extracts your expertise and turns it into LinkedIn posts, X threads, and newsletters — in your voice.',
+      'Talk for 15 minutes. Our AI extracts your expertise and turns it into LinkedIn posts, X threads, and newsletters — in your voice.',
     visual: 'session',
   },
   {

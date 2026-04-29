@@ -460,7 +460,7 @@ export default function DashboardPage() {
               Ready to record your<br />next session?
             </h1>
             <p className="mt-1 text-[11px] leading-[1.55] sm:text-[12px] lg:text-[13px]" style={{ color: 'var(--hero-body)' }}>
-              Turn 5 minutes of voice into a week of high-authority content.
+              Turn 15 minutes of voice into a week of high-authority content.
             </p>
           </div>
           <Link

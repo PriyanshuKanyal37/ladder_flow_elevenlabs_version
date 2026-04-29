@@ -10,7 +10,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle';
 const WAVEFORM = [30, 55, 80, 45, 95, 60, 40, 75, 50, 85, 35, 65];
 
 const PROOF_CARDS = [
-  { icon: 'mic', stat: '5 min recording', label: 'Turns into a week of content' },
+  { icon: 'mic', stat: '15 min recording', label: 'Turns into a week of content' },
   { icon: 'psychology', stat: 'Digital Brain', label: 'Learns your voice & expertise' },
   { icon: 'description', stat: 'LinkedIn · Newsletter · X', label: 'All platforms, one session' },
 ];

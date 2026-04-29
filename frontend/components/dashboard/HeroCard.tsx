@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -22,7 +22,7 @@ export function HeroCard() {
           <span className="text-[var(--accent)]">next session?</span>
         </h2>
         <p className="max-w-lg text-base text-secondary md:text-lg">
-          Turn 5 minutes of voice into a week of high-authority content with
+          Turn 15 minutes of voice into a week of high-authority content with
           Ladder Flow&apos;s specialized AI workflow.
         </p>
 

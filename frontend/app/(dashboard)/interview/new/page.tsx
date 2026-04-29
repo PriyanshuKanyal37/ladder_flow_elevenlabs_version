@@ -7,10 +7,10 @@ import type { ResearchResult } from '@/lib/types/trending';
 import { useUser } from '@/lib/context/UserContext';
 
 function estimateSession(topicCount: number, keywordCount: number, arcLength: number): string {
-  // ~3 min per talking point, 2 min per extra keyword (breadth), up to 5 min for dense arc
+  // ~3 min per talking point, 2 min per extra keyword (breadth), up to 15 min for dense arc
   const fromTopics = topicCount * 3;
   const fromKeywords = Math.max(0, keywordCount - 1) * 2;
-  const fromArc = Math.min(5, Math.floor(arcLength / 400));
+  const fromArc = Math.min(15, Math.floor(arcLength / 400));
   const total = Math.min(60, Math.max(15, 15 + fromTopics + fromKeywords + fromArc));
   const lo = Math.round(total / 5) * 5;
   const hi = Math.min(60, lo + 10);
