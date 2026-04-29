@@ -35,12 +35,12 @@ export default function RootLayout({
               (function() {
                 try {
                   var stored = localStorage.getItem('ladderflow-theme');
-                  var theme = stored || 'light';
+                  var theme = stored || 'dark';
                   var root = document.documentElement;
                   root.classList.remove('light', 'dark');
                   root.classList.add(theme);
                 } catch (_) {
-                  document.documentElement.classList.add('light');
+                  document.documentElement.classList.add('dark');
                 }
               })();
             `,

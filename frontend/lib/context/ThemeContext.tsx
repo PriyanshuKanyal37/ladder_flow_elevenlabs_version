@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import {
   createContext,
@@ -39,11 +39,11 @@ function applyTheme(theme: ThemeMode) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     if (typeof window === 'undefined') {
-      return 'light';
+      return 'dark';
     }
 
     const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
-    return stored || 'light';
+    return stored || 'dark';
   });
 
   useEffect(() => {
