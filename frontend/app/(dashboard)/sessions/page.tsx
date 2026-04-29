@@ -222,9 +222,9 @@ export default function SessionsPage() {
         </div>
       </div>
 
-      <div className="rounded-[14px] overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+      <div className="rounded-[14px]" style={{ border: '1px solid var(--border-default)' }}>
         <div
-          className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 border-b px-4 py-2.5"
+          className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-4 border-b px-4 py-2.5 rounded-t-[14px]"
           style={{ background: 'var(--surface)', borderColor: 'var(--border-default)' }}
         >
           <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Session</p>
@@ -239,7 +239,7 @@ export default function SessionsPage() {
             <span className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center" style={{ background: 'var(--surface)' }}>
+          <div className="flex flex-col items-center justify-center py-16 text-center rounded-b-[14px]" style={{ background: 'var(--surface)' }}>
             <span className="material-symbols-outlined text-[36px] text-[var(--text-secondary)] mb-2">search_off</span>
             <p className="text-[13px] font-semibold text-primary mb-1">
               {search || statusFilter !== 'all' ? 'No sessions match your filters' : 'No sessions yet'}
@@ -262,7 +262,7 @@ export default function SessionsPage() {
             </p>
           </div>
         ) : (
-          <div style={{ background: 'var(--surface)' }}>
+          <div className="rounded-b-[14px]" style={{ background: 'var(--surface)' }}>
             {filtered.map((session, idx) => {
               const category = deriveCategory(session.topic);
               const derivedStatus = deriveUiStatus(session.status);
