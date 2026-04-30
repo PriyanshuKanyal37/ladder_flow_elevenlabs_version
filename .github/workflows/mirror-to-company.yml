@@ -28,6 +28,8 @@ jobs:
         env:
           COMPANY_REPO_TOKEN: ${{ secrets.COMPANY_REPO_TOKEN }}
         run: |
+          git config --global --unset-all http.https://github.com/.extraheader || true
+          git config --local --unset-all http.https://github.com/.extraheader || true
           git remote add company "https://x-access-token:${COMPANY_REPO_TOKEN}@github.com/digitalmasterykit-rgb/ladder_flow_elevenlabs_version.git"
           git push company main --force
           git push company --tags --force
