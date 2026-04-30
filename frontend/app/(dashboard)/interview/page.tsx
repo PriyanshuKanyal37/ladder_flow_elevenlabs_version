@@ -75,6 +75,30 @@ function clearVoiceSessionStorage() {
   sessionStorage.removeItem('resume-prior-transcript');
 }
 
+function MobileTranscriptPanel({
+  messages,
+  isRecording,
+}: {
+  messages: TranscriptMessage[];
+  isRecording: boolean;
+}) {
+  return (
+    <section className="absolute bottom-28 left-4 right-4 z-10 flex max-h-[30vh] flex-col overflow-hidden rounded-2xl border border-subtle bg-[var(--surface-frost)] shadow-[0_18px_48px_-30px_var(--glass-shadow)] backdrop-blur-xl lg:hidden">
+      <div className="flex items-center justify-between border-b border-subtle px-4 py-3">
+        <h3 className="label-kicker">Live Transcript</h3>
+        <span className="mono-text text-[11px] text-secondary">{messages.length} lines</span>
+      </div>
+      {messages.length > 0 ? (
+        <TranscriptPanel messages={messages} isRecording={isRecording} currentText="" />
+      ) : (
+        <div className="px-4 py-5 text-center text-[12px] text-secondary">
+          Waiting for transcript...
+        </div>
+      )}
+    </section>
+  );
+}
+
 function InterviewPageInner() {
   const router = useRouter();
 
@@ -519,6 +543,11 @@ function InterviewPageInner() {
             Ladder Flow is synthesizing your latest point and tailoring the next question in real time.
           </p>
         </main>
+
+        <MobileTranscriptPanel
+          messages={messages}
+          isRecording={state.isListening && !isMuted}
+        />
 
         <aside className="hidden w-[34%] max-w-[430px] min-w-[340px] border-l border-subtle bg-[var(--surface-frost)] backdrop-blur-xl lg:flex lg:flex-col">
           <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
