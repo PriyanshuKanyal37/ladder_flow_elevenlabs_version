@@ -80,6 +80,7 @@ export default function LoginPage() {
           <div
             className="pointer-events-none absolute bottom-0 left-1/2 h-[400px] w-[600px] -translate-x-1/2"
             style={{ background: 'radial-gradient(circle at center, rgba(233,83,53,0.14) 0%, transparent 70%)' }}
+            suppressHydrationWarning
           />
 
           {/* Content */}
@@ -100,6 +101,7 @@ export default function LoginPage() {
                     borderLeft: '1px solid rgba(255,255,255,0.04)',
                     backdropFilter: 'blur(12px)',
                   }}
+                  suppressHydrationWarning
                 >
                   <span className="material-symbols-outlined text-[18px] text-[var(--accent)]">{card.icon}</span>
                   <div>
@@ -118,6 +120,7 @@ export default function LoginPage() {
                 key={i}
                 className="w-2 rounded-full bg-[var(--accent)]"
                 style={{ height: `${h}%`, boxShadow: '0 0 10px rgba(233,83,53,0.45)' }}
+                suppressHydrationWarning
               />
             ))}
           </div>
@@ -133,6 +136,7 @@ export default function LoginPage() {
               border: '1px solid var(--form-glass-border, rgba(255,255,255,0.08))',
               boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
             }}
+            suppressHydrationWarning
           >
             {/* Mobile branding */}
             <div className="mb-6 flex flex-col items-center text-center md:hidden">
@@ -154,6 +158,7 @@ export default function LoginPage() {
               <div
                 className="relative flex w-full cursor-not-allowed items-center justify-center gap-3 rounded-lg border px-4 py-2.5 text-[13px] font-medium opacity-50"
                 style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                suppressHydrationWarning
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -170,12 +175,13 @@ export default function LoginPage() {
               {/* Divider */}
               <div className="relative py-1">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+                  <div className="w-full border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }} suppressHydrationWarning />
                 </div>
                 <div className="relative flex justify-center">
                   <span
                     className="px-3 text-[10px] uppercase tracking-widest text-[var(--text-secondary)]"
                     style={{ background: 'var(--form-glass-bg, rgba(26,26,26,0.88))' }}
+                    suppressHydrationWarning
                   >
                     Or use email
                   </span>
@@ -203,6 +209,7 @@ export default function LoginPage() {
                     placeholder="executive@founder.com"
                     className="w-full rounded-lg border bg-[var(--background)] px-3.5 py-2.5 text-[13px] text-[var(--text-primary)] outline-none transition-all placeholder:text-[var(--text-secondary)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]"
                     style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                    suppressHydrationWarning
                   />
                 </div>
 
@@ -227,6 +234,7 @@ export default function LoginPage() {
                       placeholder="••••••••"
                       className="w-full rounded-lg border bg-[var(--background)] px-3.5 py-2.5 pr-10 text-[13px] text-[var(--text-primary)] outline-none transition-all placeholder:text-[var(--text-secondary)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]"
                       style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                      suppressHydrationWarning
                     />
                     <button
                       type="button"

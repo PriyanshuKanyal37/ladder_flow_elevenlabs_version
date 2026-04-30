@@ -147,26 +147,20 @@ function PlatformContentPreview({
   }
 
   if (platform === 'x' || platform === 'twitter') {
-    const tweets = splitThread(content);
     return (
-      <div className="space-y-2.5">
-        {tweets.map((tweet, index) => (
-          <div key={index} className="relative rounded-2xl border border-subtle bg-[var(--surface)] p-4">
-            {index < tweets.length - 1 && (
-              <span className="absolute left-[31px] top-[52px] h-[calc(100%-34px)] w-px bg-[var(--border-default)]" />
-            )}
-            <div className="flex gap-3">
-              <div className="z-[1] flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black text-[12px] font-black text-white">X</div>
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 flex items-center gap-1.5">
-                  <p className="text-[12px] font-bold text-primary">Thread draft</p>
-                  <span className="text-[10px] text-[var(--text-secondary)]">{index + 1}/{tweets.length}</span>
-                </div>
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-primary">{renderInlineMarkdown(tweet)}</p>
-              </div>
-            </div>
+      <div className="rounded-2xl border border-subtle bg-[var(--surface)] p-4">
+        <div className="mb-3 flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-[13px] font-black text-white">X</div>
+          <div>
+            <p className="text-[12px] font-bold text-primary">Ladder Flow Draft</p>
+            <p className="text-[10px] text-[var(--text-secondary)]">X post preview</p>
           </div>
-        ))}
+        </div>
+        <div className="space-y-3 text-[13px] leading-relaxed text-primary">
+          {splitParagraphs(content).map((paragraph, index) => (
+            <p key={index} className="whitespace-pre-wrap">{renderInlineMarkdown(paragraph)}</p>
+          ))}
+        </div>
       </div>
     );
   }
