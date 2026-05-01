@@ -45,7 +45,7 @@ def _elevenlabs_ready() -> tuple[bool, str | None]:
 
     try:
         response = requests.get(
-            "https://api.elevenlabs.io/v1/convai/conversation/get-signed-url",
+            "https://api.elevenlabs.io/v1/convai/conversation/token",
             params={"agent_id": settings.ELEVENLABS_AGENT_ID},
             headers={"xi-api-key": settings.ELEVENLABS_API_KEY},
             timeout=8,

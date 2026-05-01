@@ -79,7 +79,7 @@ export default function InterviewSetupPage() {
       });
       if (!config.interviewId) throw new Error('Invalid session response from server.');
       if (config.provider === 'elevenlabs') {
-        if (!config.agentId && !config.signedUrl) throw new Error('Invalid ElevenLabs session response');
+        if (!config.agentId && !config.conversationToken && !config.signedUrl) throw new Error('Invalid ElevenLabs session response');
       } else if (!config.token || !config.livekitUrl) {
         throw new Error('Invalid LiveKit session response');
       }

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useRef, useEffect } from 'react';
+import { memo, useRef, useEffect } from 'react';
 import { TranscriptMessage } from './TranscriptMessage';
 import type { TranscriptMessage as TranscriptMessageType } from '@/lib/types/transcript';
 
@@ -10,7 +10,7 @@ interface TranscriptPanelProps {
   currentText?: string;
 }
 
-export function TranscriptPanel({ messages, isRecording, currentText }: TranscriptPanelProps) {
+export const TranscriptPanel = memo(function TranscriptPanel({ messages, isRecording, currentText }: TranscriptPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages appear
@@ -48,5 +48,7 @@ export function TranscriptPanel({ messages, isRecording, currentText }: Transcri
       )}
     </div>
   );
-}
+});
+
+TranscriptPanel.displayName = 'TranscriptPanel';
 
