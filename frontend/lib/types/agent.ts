@@ -31,6 +31,7 @@ export interface ElevenLabsOverrides {
 export interface ElevenLabsSession {
   provider: 'elevenlabs';
   agentId: string;
+  conversationToken?: string;
   signedUrl?: string;
   overrides?: ElevenLabsOverrides;
   topicTitle: string;
@@ -52,4 +53,3 @@ export interface AgentDispatchResponse {
   status: 'dispatched' | 'already_dispatched' | 'not_required';
   roomName: string;
 }
-

@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import type { TranscriptMessage as TranscriptMessageType } from '@/lib/types/transcript';
@@ -11,7 +12,7 @@ interface TranscriptMessageProps {
   isFaded?: boolean;
 }
 
-export function TranscriptMessage({ 
+export const TranscriptMessage = memo(function TranscriptMessage({ 
   message, 
   isCurrentQuestion,
   isRecording,
@@ -68,5 +69,7 @@ export function TranscriptMessage({
       </p>
     </div>
   );
-}
+});
+
+TranscriptMessage.displayName = 'TranscriptMessage';
 

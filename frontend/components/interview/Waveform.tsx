@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 
 type WaveformMode = 'idle' | 'listening' | 'speaking' | 'thinking';
@@ -72,7 +72,7 @@ const blobStyles = [
   { width: '34%', height: '34%', left: '55%', top: '50%', animationName: 'lf-orb-blob-d', animationDelay: '540ms' },
 ];
 
-export function Waveform({ isActive = false, mode, size = 'lg', className }: WaveformProps) {
+export const Waveform = memo(function Waveform({ isActive = false, mode, size = 'lg', className }: WaveformProps) {
   const resolvedMode: WaveformMode = mode ?? (isActive ? 'listening' : 'idle');
   const meta = MODE_META[resolvedMode];
   const isMoving = resolvedMode !== 'idle';
@@ -95,6 +95,8 @@ export function Waveform({ isActive = false, mode, size = 'lg', className }: Wav
           ...orbStyle,
           width: orbSize,
           height: orbSize,
+          contain: 'layout paint style',
+          willChange: 'transform',
           animationName: isMoving ? (resolvedMode === 'speaking' ? 'lf-orb-speak' : 'lf-orb-listen') : 'lf-orb-idle',
           animationDuration: isMoving ? meta.tempo : '6000ms',
           animationTimingFunction: 'ease-in-out',
@@ -105,6 +107,7 @@ export function Waveform({ isActive = false, mode, size = 'lg', className }: Wav
           className="absolute -inset-[28%] rounded-full blur-3xl"
           style={{
             background: 'radial-gradient(circle, var(--orb-glow) 0%, transparent 68%)',
+            willChange: 'transform, opacity',
             animationName: isMoving ? 'lf-orb-halo' : 'none',
             animationDuration: meta.tempo,
             animationTimingFunction: 'ease-in-out',
@@ -158,6 +161,7 @@ export function Waveform({ isActive = false, mode, size = 'lg', className }: Wav
                 top: blob.top,
                 background: index % 2 === 0 ? 'var(--orb-core)' : 'var(--orb-core-2)',
                 opacity: resolvedMode === 'idle' ? 0.28 : 0.58,
+                willChange: 'transform',
                 animationName: isMoving ? blob.animationName : 'none',
                 animationDuration: meta.tempo,
                 animationTimingFunction: 'ease-in-out',
@@ -183,4 +187,6 @@ export function Waveform({ isActive = false, mode, size = 'lg', className }: Wav
       </div>
     </div>
   );
-}
+});
+
+Waveform.displayName = 'Waveform';

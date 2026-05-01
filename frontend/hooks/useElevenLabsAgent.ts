@@ -6,6 +6,8 @@ import type { HookOptions } from '@elevenlabs/react';
 import type { ElevenLabsSession } from '@/lib/types/agent';
 import type { TranscriptMessage } from '@/lib/types/transcript';
 
+const LIVE_TRANSCRIPT_UPDATE_MS = 80;
+
 export interface VoiceAgentState {
   isConnected: boolean;
   isListening: boolean;
@@ -22,10 +24,28 @@ export interface UseElevenLabsAgentOptions {
 export interface UseElevenLabsAgentReturn {
   state: VoiceAgentState;
   messages: TranscriptMessage[];
+  liveUserTranscript: string;
   connect: (session: ElevenLabsSession) => Promise<void>;
   disconnect: () => void;
   toggleMute: () => void;
   isMuted: boolean;
+}
+
+interface TentativeUserTranscriptDebugEvent {
+  type: 'tentative_user_transcript';
+  tentative_user_transcription_event?: {
+    user_transcript?: string;
+    event_id?: number;
+  };
+}
+
+interface TentativeAgentResponseDebugEvent {
+  type: 'tentative_agent_response';
+  response?: string;
+}
+
+function isDebugRecord(payload: unknown): payload is Record<string, unknown> {
+  return typeof payload === 'object' && payload !== null;
 }
 
 export function useElevenLabsAgent(
@@ -33,10 +53,18 @@ export function useElevenLabsAgent(
 ): UseElevenLabsAgentReturn {
   const { onError, onMessage } = options;
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
+  const [liveUserTranscript, setLiveUserTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const connectionAttemptRef = useRef(false);
   const statusRef = useRef('disconnected');
+  const pendingLiveUserTranscriptRef = useRef('');
+  const liveTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLiveTranscriptFlushRef = useRef(0);
+  const userTentativeStartedAtRef = useRef<number | null>(null);
+  const userFinalAtRef = useRef<number | null>(null);
+  const speakingLoggedForUserFinalAtRef = useRef<number | null>(null);
+  const debugEventTypesRef = useRef<Set<string>>(new Set());
 
   // Refs hold the latest callbacks without exposing them as deps — prevents
   // useConversation from receiving new function references each render.
@@ -44,6 +72,28 @@ export function useElevenLabsAgent(
   const onErrorRef = useRef(onError);
   onMessageRef.current = onMessage;
   onErrorRef.current = onError;
+
+  const flushLiveUserTranscript = useCallback(() => {
+    liveTranscriptTimerRef.current = null;
+    lastLiveTranscriptFlushRef.current = performance.now();
+    const next = pendingLiveUserTranscriptRef.current;
+    setLiveUserTranscript((current) => (current === next ? current : next));
+  }, []);
+
+  const queueLiveUserTranscript = useCallback((transcript: string) => {
+    pendingLiveUserTranscriptRef.current = transcript;
+    if (liveTranscriptTimerRef.current) return;
+
+    const elapsed = performance.now() - lastLiveTranscriptFlushRef.current;
+    const delay = Math.max(0, LIVE_TRANSCRIPT_UPDATE_MS - elapsed);
+    liveTranscriptTimerRef.current = setTimeout(() => {
+      if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+        window.requestAnimationFrame(flushLiveUserTranscript);
+        return;
+      }
+      flushLiveUserTranscript();
+    }, delay);
+  }, [flushLiveUserTranscript]);
 
   // Stable handlers — empty deps, identity never changes across renders.
   const handleMessage = useCallback((payload: Parameters<NonNullable<HookOptions['onMessage']>>[0]) => {
@@ -57,10 +107,56 @@ export function useElevenLabsAgent(
       content: payload.message || '',
       final: true,
     };
+    if (role === 'user') {
+      const now = performance.now();
+      if (userTentativeStartedAtRef.current !== null && process.env.NODE_ENV === 'development') {
+        console.info(
+          `[Voice latency] user tentative-to-final ${Math.round(now - userTentativeStartedAtRef.current)}ms`
+        );
+      }
+      userFinalAtRef.current = now;
+      speakingLoggedForUserFinalAtRef.current = null;
+      userTentativeStartedAtRef.current = null;
+      queueLiveUserTranscript('');
+    } else if (userFinalAtRef.current !== null && process.env.NODE_ENV === 'development') {
+      console.info(
+        `[Voice latency] user-final-to-agent-final ${Math.round(performance.now() - userFinalAtRef.current)}ms`
+      );
+    }
     setMessages((prev) => [...prev, msg]);
     onMessageRef.current?.(msg);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [queueLiveUserTranscript]);
+
+  const handleDebug = useCallback((payload: unknown) => {
+    if (!isDebugRecord(payload)) return;
+
+    const eventType = typeof payload.type === 'string' ? payload.type : 'unknown';
+    if (process.env.NODE_ENV === 'development' && !debugEventTypesRef.current.has(eventType)) {
+      debugEventTypesRef.current.add(eventType);
+      console.info('[ElevenLabs debug event]', eventType, payload);
+    }
+
+    if (payload.type === 'tentative_user_transcript') {
+      const event = payload as unknown as TentativeUserTranscriptDebugEvent;
+      const transcript = event.tentative_user_transcription_event?.user_transcript?.trim() || '';
+      if (transcript && !pendingLiveUserTranscriptRef.current) {
+        userTentativeStartedAtRef.current = performance.now();
+      }
+      queueLiveUserTranscript(transcript);
+      if (process.env.NODE_ENV === 'development' && transcript) {
+        console.info('[ElevenLabs live user transcript]', transcript);
+      }
+      return;
+    }
+
+    if (payload.type === 'tentative_agent_response') {
+      const event = payload as unknown as TentativeAgentResponseDebugEvent;
+      if (event.response && process.env.NODE_ENV === 'development') {
+        console.debug('[ElevenLabs tentative agent]', event.response);
+      }
+    }
+  }, [queueLiveUserTranscript]);
 
   const handleError = useCallback((msg: string) => {
     setError(msg);
@@ -68,8 +164,24 @@ export function useElevenLabsAgent(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleModeChange = useCallback((payload: { mode: 'speaking' | 'listening' }) => {
+    if (
+      payload.mode === 'speaking' &&
+      userFinalAtRef.current !== null &&
+      speakingLoggedForUserFinalAtRef.current !== userFinalAtRef.current &&
+      process.env.NODE_ENV === 'development'
+    ) {
+      speakingLoggedForUserFinalAtRef.current = userFinalAtRef.current;
+      console.info(
+        `[Voice latency] user-final-to-agent-speaking ${Math.round(performance.now() - userFinalAtRef.current)}ms`
+      );
+    }
+  }, []);
+
   const conversation = useConversation({
     onMessage: handleMessage,
+    onDebug: handleDebug,
+    onModeChange: handleModeChange,
     onError: handleError,
   });
 
@@ -88,9 +200,20 @@ export function useElevenLabsAgent(
     }
     connectionAttemptRef.current = true;
     seenIdsRef.current.clear();
+    debugEventTypesRef.current.clear();
+    userTentativeStartedAtRef.current = null;
+    userFinalAtRef.current = null;
+    speakingLoggedForUserFinalAtRef.current = null;
     setError(null);
+    queueLiveUserTranscript('');
+    const authOptions: Partial<HookOptions> = session.conversationToken
+      ? { conversationToken: session.conversationToken, connectionType: 'webrtc' }
+      : session.signedUrl
+        ? { signedUrl: session.signedUrl }
+        : { agentId: session.agentId, connectionType: 'webrtc' };
+
     const startOptions: HookOptions = {
-      ...(session.signedUrl ? { signedUrl: session.signedUrl } : { agentId: session.agentId }),
+      ...authOptions,
       overrides: session.overrides as HookOptions['overrides'],
       userId: session.interviewId,
     };
@@ -100,15 +223,25 @@ export function useElevenLabsAgent(
 
   const disconnect = useCallback(() => {
     connectionAttemptRef.current = false;
+    queueLiveUserTranscript('');
     conversationRef.current.endSession();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [queueLiveUserTranscript]);
 
   useEffect(() => {
     if (conversation.status === 'disconnected' || conversation.status === 'error') {
       connectionAttemptRef.current = false;
+      queueLiveUserTranscript('');
     }
-  }, [conversation.status]);
+  }, [conversation.status, queueLiveUserTranscript]);
+
+  useEffect(() => {
+    return () => {
+      if (liveTranscriptTimerRef.current) {
+        clearTimeout(liveTranscriptTimerRef.current);
+      }
+    };
+  }, []);
 
   const toggleMute = useCallback(() => {
     conversationRef.current.setMuted(!conversationRef.current.isMuted);
@@ -132,6 +265,7 @@ export function useElevenLabsAgent(
   return {
     state,
     messages,
+    liveUserTranscript,
     connect,
     disconnect,
     toggleMute,

@@ -34,5 +34,10 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@elevenlabs/client": {
+      "livekit-client": "2.11.4"
+    }
   }
 }

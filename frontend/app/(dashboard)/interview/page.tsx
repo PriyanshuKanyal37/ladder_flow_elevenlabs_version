@@ -44,7 +44,10 @@ function readSession(): {
     const session = JSON.parse(rawSession) as AgentConfigResponse & { resumed?: boolean };
     const context = JSON.parse(rawContext) as ResearchResult;
     const isElevenLabs = session.provider === 'elevenlabs';
-    if (!session.interviewId || (isElevenLabs && !session.agentId && !session.signedUrl)) {
+    if (
+      !session.interviewId ||
+      (isElevenLabs && !session.agentId && !session.conversationToken && !session.signedUrl)
+    ) {
       return { session: null, context: null, priorTranscript: '' };
     }
     if (!isElevenLabs && (!('token' in session) || !session.token || !session.livekitUrl)) {
@@ -78,18 +81,22 @@ function clearVoiceSessionStorage() {
 function MobileTranscriptPanel({
   messages,
   isRecording,
+  currentText,
 }: {
   messages: TranscriptMessage[];
   isRecording: boolean;
+  currentText: string;
 }) {
+  const lineCount = messages.length + (currentText ? 1 : 0);
+
   return (
     <section className="absolute bottom-28 left-4 right-4 z-10 flex max-h-[30vh] flex-col overflow-hidden rounded-2xl border border-subtle bg-[var(--surface-frost)] shadow-[0_18px_48px_-30px_var(--glass-shadow)] backdrop-blur-xl lg:hidden">
       <div className="flex items-center justify-between border-b border-subtle px-4 py-3">
         <h3 className="label-kicker">Live Transcript</h3>
-        <span className="mono-text text-[11px] text-secondary">{messages.length} lines</span>
+        <span className="mono-text text-[11px] text-secondary">{lineCount} lines</span>
       </div>
-      {messages.length > 0 ? (
-        <TranscriptPanel messages={messages} isRecording={isRecording} currentText="" />
+      {lineCount > 0 ? (
+        <TranscriptPanel messages={messages} isRecording={isRecording} currentText={currentText} />
       ) : (
         <div className="px-4 py-5 text-center text-[12px] text-secondary">
           Waiting for transcript...
@@ -134,7 +141,7 @@ function InterviewPageInner() {
   const connectedAtRef = useRef<number | null>(null);
   const lastVoiceActivityRef = useRef<number>(0);
 
-  const { state, messages, connect, disconnect, toggleMute, isMuted } =
+  const { state, messages, liveUserTranscript, connect, disconnect, toggleMute, isMuted } =
     useElevenLabsAgent({
       onError: useCallback((err: string) => {
         if (err.toLowerCase().includes('client initiated disconnect')) {
@@ -199,10 +206,10 @@ function InterviewPageInner() {
   }, [state.isConnected]);
 
   useEffect(() => {
-    if (messages.length > 0 || state.isSpeaking) {
+    if (messages.length > 0 || liveUserTranscript || state.isSpeaking) {
       lastVoiceActivityRef.current = Date.now();
     }
-  }, [messages.length, state.isSpeaking]);
+  }, [messages.length, liveUserTranscript, state.isSpeaking]);
 
   useEffect(() => {
     if (!elevenSession || !state.isConnected || isEndingRef.current) return;
@@ -369,11 +376,11 @@ function InterviewPageInner() {
   }, [state.isConnected]);
 
   useEffect(() => {
-    if (state.isSpeaking || messages.length > 0) {
+    if (state.isSpeaking || messages.length > 0 || liveUserTranscript) {
       const t = setTimeout(() => setIsPreparing(false), 0);
       return () => clearTimeout(t);
     }
-  }, [state.isSpeaking, messages.length]);
+  }, [state.isSpeaking, messages.length, liveUserTranscript]);
 
   const formattedDuration = useMemo(() => {
     const m = Math.floor(duration / 60);
@@ -546,13 +553,16 @@ function InterviewPageInner() {
 
         <MobileTranscriptPanel
           messages={messages}
-          isRecording={state.isListening && !isMuted}
+          isRecording={(state.isListening && !isMuted) || Boolean(liveUserTranscript)}
+          currentText={liveUserTranscript}
         />
 
         <aside className="hidden w-[34%] max-w-[430px] min-w-[340px] border-l border-subtle bg-[var(--surface-frost)] backdrop-blur-xl lg:flex lg:flex-col">
           <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
             <h3 className="label-kicker">Live Transcript</h3>
-            <span className="mono-text text-[11px] text-secondary">{messages.length} lines</span>
+            <span className="mono-text text-[11px] text-secondary">
+              {messages.length + (liveUserTranscript ? 1 : 0)} lines
+            </span>
           </div>
           {isResume && priorTranscript && (
             <div
@@ -567,7 +577,11 @@ function InterviewPageInner() {
               </pre>
             </div>
           )}
-          <TranscriptPanel messages={messages} isRecording={state.isListening && !isMuted} currentText="" />
+          <TranscriptPanel
+            messages={messages}
+            isRecording={(state.isListening && !isMuted) || Boolean(liveUserTranscript)}
+            currentText={liveUserTranscript}
+          />
         </aside>
       </div>
 

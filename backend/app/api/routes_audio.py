@@ -43,12 +43,46 @@ def _assert_elevenlabs_config() -> None:
         )
 
 
+ELEVENLABS_CONVERSATION_API = "https://api.elevenlabs.io/v1/convai/conversation"
+
+
+def _get_elevenlabs_conversation_token(
+    agent_id: str,
+    participant_name: str | None = None,
+) -> str:
+    """
+    Server-side WebRTC token generation for private/authenticated ElevenAgents sessions.
+    WebRTC is the preferred browser voice transport for lower latency.
+    """
+    params = {"agent_id": agent_id}
+    if participant_name:
+        params["participant_name"] = participant_name
+
+    response = requests.get(
+        f"{ELEVENLABS_CONVERSATION_API}/token",
+        params=params,
+        headers={"xi-api-key": settings.ELEVENLABS_API_KEY},
+        timeout=15,
+    )
+    if not response.ok:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to obtain ElevenLabs WebRTC token ({response.status_code})",
+        )
+    payload = response.json()
+    token = payload.get("token")
+    if not token:
+        raise HTTPException(status_code=502, detail="ElevenLabs did not return token")
+    return token
+
+
 def _get_elevenlabs_signed_url(agent_id: str) -> str:
     """
     Server-side signed URL generation for private/authenticated ElevenAgents sessions.
+    This is kept as a WebSocket fallback for older clients.
     """
     response = requests.get(
-        "https://api.elevenlabs.io/v1/convai/conversation/get-signed-url",
+        f"{ELEVENLABS_CONVERSATION_API}/get-signed-url",
         params={"agent_id": agent_id},
         headers={"xi-api-key": settings.ELEVENLABS_API_KEY},
         timeout=15,
@@ -63,6 +97,89 @@ def _get_elevenlabs_signed_url(agent_id: str) -> str:
     if not signed_url:
         raise HTTPException(status_code=502, detail="ElevenLabs did not return signed_url")
     return signed_url
+
+
+def _get_elevenlabs_session_credentials(
+    agent_id: str,
+    participant_name: str,
+) -> dict[str, str | None]:
+    conversation_token: str | None = None
+    token_error: str | None = None
+
+    try:
+        conversation_token = _get_elevenlabs_conversation_token(
+            agent_id,
+            participant_name=participant_name,
+        )
+    except HTTPException as exc:
+        token_error = str(exc.detail)
+        logger.warning("ElevenLabs WebRTC token unavailable, trying signed URL: %s", exc.detail)
+
+    try:
+        signed_url = _get_elevenlabs_signed_url(agent_id)
+    except HTTPException as exc:
+        if not conversation_token:
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "message": "Failed to obtain ElevenLabs session credentials",
+                    "conversation_token_error": token_error,
+                    "signed_url_error": exc.detail,
+                },
+            ) from exc
+        logger.warning("ElevenLabs signed URL fallback unavailable: %s", exc.detail)
+        signed_url = None
+
+    return {
+        "conversationToken": conversation_token,
+        "signedUrl": signed_url,
+    }
+
+
+def _log_voice_transport(
+    event: str,
+    credentials: dict[str, str | None],
+    interview_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    if credentials.get("conversationToken"):
+        transport = "webrtc"
+        reason = "conversationToken"
+    elif credentials.get("signedUrl"):
+        transport = "websocket_fallback"
+        reason = "signedUrl"
+    else:
+        transport = "none"
+        reason = "missing_credentials"
+
+    message = (
+        f"VOICE_TRANSPORT event={event} transport={transport} "
+        f"reason={reason} interview_id={interview_id} user_id={user_id}"
+    )
+    logger.info(message)
+    print(message, flush=True)
+
+
+def _build_elevenlabs_overrides(config: dict) -> dict:
+    client_events = [
+        "agent_response",
+        "agent_response_correction",
+        "agent_chat_response_part",
+        "user_transcript",
+        "tentative_user_transcript",
+        "asr_initiation_metadata",
+    ]
+    print(f"VOICE_CLIENT_EVENTS requested={','.join(client_events)}", flush=True)
+
+    return {
+        "agent": {
+            "prompt": {"prompt": config["systemPrompt"]},
+            "firstMessage": config["greeting"],
+        },
+        "conversation": {
+            "client_events": client_events,
+        },
+    }
 
 
 async def _lock_user_voice_start(session: AsyncSession, user_id: uuid.UUID) -> None:
@@ -212,18 +329,17 @@ async def agent_config(
     await session.commit()
     await session.refresh(interview)
 
-    signed_url = _get_elevenlabs_signed_url(settings.ELEVENLABS_AGENT_ID)
-    overrides = {
-        "agent": {
-            "prompt": {"prompt": config["systemPrompt"]},
-            "firstMessage": config["greeting"],
-        }
-    }
+    credentials = _get_elevenlabs_session_credentials(
+        settings.ELEVENLABS_AGENT_ID,
+        participant_name=str(user.id),
+    )
+    _log_voice_transport("start", credentials, interview.id, user.id)
+    overrides = _build_elevenlabs_overrides(config)
 
     return {
         "provider": "elevenlabs",
         "agentId": settings.ELEVENLABS_AGENT_ID,
-        "signedUrl": signed_url,
+        **credentials,
         "overrides": overrides,
         "topicTitle": config["topicTitle"],
         "userName": config["userName"],
@@ -353,18 +469,17 @@ async def agent_config_resume(
     await session.commit()
     await session.refresh(interview)
 
-    signed_url = _get_elevenlabs_signed_url(settings.ELEVENLABS_AGENT_ID)
-    overrides = {
-        "agent": {
-            "prompt": {"prompt": config["systemPrompt"]},
-            "firstMessage": config["greeting"],
-        }
-    }
+    credentials = _get_elevenlabs_session_credentials(
+        settings.ELEVENLABS_AGENT_ID,
+        participant_name=str(user.id),
+    )
+    _log_voice_transport("resume", credentials, interview.id, user.id)
+    overrides = _build_elevenlabs_overrides(config)
 
     return {
         "provider": "elevenlabs",
         "agentId": settings.ELEVENLABS_AGENT_ID,
-        "signedUrl": signed_url,
+        **credentials,
         "overrides": overrides,
         "topicTitle": config["topicTitle"],
         "userName": config["userName"],
